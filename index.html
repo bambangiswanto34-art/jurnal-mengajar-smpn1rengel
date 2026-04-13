@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JURNAL MENGAJAR UPT SMPN 1 RENGEL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active { border-bottom: 2px solid #1e40af; color: #1e40af; font-weight: 700; }
+        .loading-overlay {
+            position: fixed; inset: 0; background: rgba(255,255,255,0.8);
+            display: flex; justify-content: center; align-items: center; z-index: 9999;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <div id="loading" class="loading-overlay">
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-800 mb-4"></div>
+            <p class="text-blue-800 font-medium">Menghubungkan ke Cloud...</p>
+        </div>
+    </div>
+
+    <nav class="bg-blue-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <span class="font-bold text-xl tracking-tight">UPT SMPN 1 RENGEL</span>
+                <div class="flex space-x-4">
+                    <button onclick="showPage('home')" class="hover:bg-blue-700 px-3 py-2 rounded-md text-sm font-medium transition">Isi Jurnal</button>
+                    <button onclick="checkAdmin()" class="bg-yellow-500 hover:bg-yellow-600 text-blue-900 px-3 py-2 rounded-md text-sm font-bold transition">Kelola Data</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div id="page-home" class="page block">
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Formulir Jurnal & Absensi</h2>
+                <form id="journalForm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Pilih Guru</label>
+                            <select id="j_guru" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 border" required></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Mata Pelajaran</label>
+                            <select id="j_mapel" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 border" required></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Kelas</label>
+                            <select id="j_kelas" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 border" required></select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Jam Mengajar</label>
+                            <select id="j_jam" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 border" required></select>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-100">
+                        <h3 class="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wider">Laporan Absensi Siswa</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                            <div><label class="block text-xs font-semibold text-gray-600 mb-1">Hadir</label><input type="number" id="j_hadir" value="0" class="w-full border p-2 rounded text-center"></div>
+                            <div><label class="block text-xs font-semibold text-gray-600 mb-1">Sakit (S)</label><input type="number" id="j_sakit" value="0" class="w-full border p-2 rounded text-center"></div>
+                            <div><label class="block text-xs font-semibold text-gray-600 mb-1">Izin (I)</label><input type="number" id="j_izin" value="0" class="w-full border p-2 rounded text-center"></div>
+                            <div><label class="block text-xs font-semibold text-gray-600 mb-1">Alfa (A)</label><input type="number" id="j_alfa" value="0" class="w-full border p-2 rounded text-center"></div>
+                        </div>
+                        <input type="text" id="j_nama_absen" class="w-full border p-2 rounded bg-white text-sm" placeholder="Nama Siswa Tidak Hadir...">
+                    </div>
+
+                    <textarea id="j_materi" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 border mb-6" placeholder="Ringkasan Materi..." required></textarea>
+
+                    <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-blue-700 transition">Simpan Jurnal & Absensi</button>
+                </form>
+            </div>
+
+            <div class="mt-8 bg-white shadow rounded-lg p-6">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                    <h3 class="text-xl font-bold text-gray-800">Riwayat Jurnal Cloud</h3>
+                    <div class="flex items-center gap-2">
+                        <select id="filter_guru" onchange="window.renderJournals()" class="border rounded p-1.5 text-sm bg-white">
+                            <option value="all">Semua Guru</option>
+                        </select>
+                        <button onclick="window.exportFilteredData()" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm font-bold">Ekspor CSV</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 text-xs">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Waktu</th>
+                                <th class="px-4 py-3 text-left">Guru/Kelas</th>
+                                <th class="px-4 py-3 text-left">Materi</th>
+                                <th class="px-4 py-3 text-center">H/S/I/A</th>
+                                <th class="px-4 py-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="journalTableBody" class="divide-y divide-gray-200 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-admin" class="page hidden">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Panel Kontrol Cloud</h2>
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex border-b mb-6 text-sm overflow-x-auto">
+                    <button onclick="window.switchAdminTab('guru')" id="tab-guru" class="px-6 py-3 transition">Guru</button>
+                    <button onclick="window.switchAdminTab('kelas')" id="tab-kelas" class="px-6 py-3 transition">Kelas</button>
+                    <button onclick="window.switchAdminTab('mapel')" id="tab-mapel" class="px-6 py-3 transition">Mapel</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h4 class="font-bold text-gray-700 mb-2">Input Massal (Pemisah Baris Baru)</h4>
+                        <textarea id="mass-input" rows="6" class="w-full border p-3 rounded bg-gray-50 text-sm" placeholder="Contoh:&#10;Nama Guru 1&#10;Nama Guru 2"></textarea>
+                        <button onclick="window.saveMassInput()" class="mt-2 w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Tambah Data ke Cloud</button>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-700 mb-2 text-sm">Data Terdaftar di Cloud:</h4>
+                        <div id="data-list-container" class="border rounded max-h-64 overflow-y-auto p-2 bg-gray-50 space-y-1"></div>
+                    </div>
+                </div>
+                <div class="mt-8 border-t pt-4 flex justify-between items-center">
+                    <button onclick="showPage('home')" class="text-blue-600 font-bold hover:underline">← Kembali ke Form</button>
+                    <button onclick="window.clearAllJournals()" class="text-red-500 text-xs hover:underline">Hapus Semua Data Jurnal</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="adminModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg w-80 shadow-2xl">
+            <h3 class="font-bold mb-4 text-center">Login Administrator</h3>
+            <input type="password" id="adminPass" class="w-full border p-2 rounded mb-4 focus:ring-2 focus:ring-blue-500" placeholder="Masukkan Password (123)">
+            <button onclick="window.verifyAdmin()" class="w-full bg-blue-600 text-white py-2 rounded font-bold mb-2">Masuk</button>
+            <button onclick="window.closeAdminModal()" class="w-full text-gray-500 text-sm">Batal</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, addDoc, deleteDoc, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'smp1rengel-cloud';
+
+        let masterData = { guru: [], kelas: [], mapel: [], jam: ["1","2","3","4","5","6","7","8"] };
+        let journals = [];
+        let currentTab = 'guru';
+        let unsubConfig = null;
+        let unsubJournals = null;
+
+        // Fungsi untuk memulai listener data HANYA setelah login berhasil
+        const startDataSync = () => {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            // Bersihkan listener sebelumnya untuk mencegah duplikasi atau error izin
+            if (unsubConfig) unsubConfig();
+            if (unsubJournals) unsubJournals();
+
+            // 1. Sync Konfigurasi
+            unsubConfig = onSnapshot(doc(db, 'artifacts', appId, 'public', 'config'), (snap) => {
+                if (snap.exists()) {
+                    masterData = { ...masterData, ...snap.data() };
+                    updateDropdowns();
+                    if (typeof window.renderAdminData === 'function') window.renderAdminData();
+                }
+            }, (err) => {
+                // Jika error izin, coba lagi sekali setelah 1 detik
+                if (err.code === 'permission-denied') {
+                    console.warn("Izin ditolak, mencoba menyambung ulang...");
+                    setTimeout(startDataSync, 1000);
+                }
+            });
+
+            // 2. Sync Database Jurnal
+            unsubJournals = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'journals'), (snap) => {
+                journals = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                    .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                window.renderJournals();
+                updateDropdowns();
+            }, (err) => {
+                console.error("Journal Sync Error:", err);
+            });
+        };
+
+        // Proses Autentikasi Utama
+        const authenticate = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth Exception:", err);
+            }
+        };
+
+        // Pasang listener status auth
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("Terautentikasi sebagai:", user.uid);
+                startDataSync();
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+
+        // Jalankan auth
+        authenticate();
+
+        // --- GLOBAL FUNCTIONS ---
+
+        window.showPage = (id) => {
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`page-${id}`).classList.remove('hidden');
+        };
+
+        window.checkAdmin = () => document.getElementById('adminModal').classList.remove('hidden');
+        window.closeAdminModal = () => document.getElementById('adminModal').classList.add('hidden');
+        window.verifyAdmin = () => {
+            const pass = document.getElementById('adminPass').value;
+            if (pass === "123") {
+                window.closeAdminModal();
+                window.showPage('admin');
+                window.switchAdminTab('guru');
+            } else {
+                alert("Password Salah!");
+            }
+        };
+
+        window.switchAdminTab = (cat) => {
+            currentTab = cat;
+            document.querySelectorAll('#page-admin button[id^="tab-"]').forEach(b => {
+                b.classList.remove('tab-active', 'text-blue-700', 'font-bold');
+            });
+            const activeBtn = document.getElementById(`tab-${cat}`);
+            if (activeBtn) activeBtn.classList.add('tab-active', 'text-blue-700', 'font-bold');
+            window.renderAdminData();
+        };
+
+        window.renderAdminData = () => {
+            const container = document.getElementById('data-list-container');
+            const items = masterData[currentTab] || [];
+            if (items.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-400 p-2 italic">Kosong</p>';
+                return;
+            }
+            container.innerHTML = items.map((it, idx) => `
+                <div class="flex justify-between p-2 bg-white border rounded text-xs items-center shadow-sm">
+                    <span class="truncate pr-2">${it}</span>
+                    <button onclick="window.removeDataItem(${idx})" class="text-red-400 hover:text-red-600 font-bold p-1">✕</button>
+                </div>
+            `).join('');
+        };
+
+        window.saveMassInput = async () => {
+            if (!auth.currentUser) return;
+            const input = document.getElementById('mass-input').value;
+            const items = input.split('\n').map(i => i.trim()).filter(i => i !== "");
+            if (items.length === 0) return alert("Masukkan data terlebih dahulu!");
+
+            const updatedList = [...new Set([...(masterData[currentTab] || []), ...items])].sort();
+            masterData[currentTab] = updatedList;
+
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'config'), masterData);
+                document.getElementById('mass-input').value = '';
+                alert("Berhasil diperbarui di Cloud!");
+            } catch (e) { 
+                alert("Gagal menyimpan: " + e.message); 
+            }
+        };
+
+        window.removeDataItem = async (idx) => {
+            if (!auth.currentUser) return;
+            if (confirm(`Hapus "${masterData[currentTab][idx]}"?`)) {
+                masterData[currentTab].splice(idx, 1);
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'config'), masterData);
+                } catch (e) {
+                    alert("Gagal menghapus: " + e.message);
+                }
+            }
+        };
+
+        window.renderJournals = () => {
+            const tbody = document.getElementById('journalTableBody');
+            const filter = document.getElementById('filter_guru').value;
+            const data = filter === 'all' ? journals : journals.filter(j => j.guru === filter);
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Tidak ada data.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(j => `
+                <tr class="hover:bg-gray-50 border-b">
+                    <td class="px-4 py-3 text-[10px] text-gray-500">${j.createdAt ? new Date(j.createdAt.seconds * 1000).toLocaleString('id-ID') : 'Sinkronisasi...'}</td>
+                    <td class="px-4 py-3"><div class="font-bold text-xs">${j.guru}</div><div class="text-[9px] text-gray-400">${j.kelas} | Jam ${j.jam}</div></td>
+                    <td class="px-4 py-3 text-xs leading-relaxed">${j.materi}</td>
+                    <td class="px-4 py-3 text-center text-[9px] font-bold text-blue-700">${j.absensi?.h || 0}/${j.absensi?.s || 0}/${j.absensi?.i || 0}/${j.absensi?.a || 0}</td>
+                    <td class="px-4 py-3 text-center"><button onclick="window.deleteJournalEntry('${j.id}')" class="text-gray-300 hover:text-red-500 transition">🗑️</button></td>
+                </tr>
+            `).join('');
+        };
+
+        window.deleteJournalEntry = async (id) => {
+            if (confirm("Hapus jurnal ini dari cloud?")) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'journals', id));
+            }
+        };
+
+        window.clearAllJournals = async () => {
+            if (confirm("PERINGATAN! Ini akan menghapus SELURUH riwayat jurnal. Lanjutkan?")) {
+                for (let j of journals) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'journals', j.id));
+                }
+                alert("Semua data jurnal telah dihapus.");
+            }
+        };
+
+        window.exportFilteredData = () => {
+            const filterValue = document.getElementById('filter_guru').value;
+            let data = journals;
+            if (filterValue !== 'all') data = journals.filter(j => j.guru === filterValue);
+            
+            const headers = "Waktu,Guru,Mapel,Kelas,Jam,Materi,H,S,I,A\n";
+            const rows = data.map(j => {
+                const date = j.createdAt ? new Date(j.createdAt.seconds * 1000).toLocaleString('id-ID').replace(',', '') : '';
+                return `"${date}","${j.guru}","${j.mapel}","${j.kelas}","${j.jam}","${j.materi}","${j.absensi?.h || 0}","${j.absensi?.s || 0}","${j.absensi?.i || 0}","${j.absensi?.a || 0}"`;
+            }).join('\n');
+            
+            const blob = new Blob([headers + rows], { type: 'text/csv' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Jurnal_SMP1Rengel_${filterValue}_${new Date().toLocaleDateString()}.csv`;
+            link.click();
+        };
+
+        function updateDropdowns() {
+            const fill = (id, list) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const current = el.value;
+                el.innerHTML = '<option value="">-- Pilih --</option>' + 
+                    (list || []).map(i => `<option value="${i}">${i}</option>`).join('');
+                if (list && list.includes(current)) el.value = current;
+            };
+            fill('j_guru', masterData.guru);
+            fill('j_kelas', masterData.kelas);
+            fill('j_mapel', masterData.mapel);
+            fill('j_jam', masterData.jam);
+            
+            const filterSelect = document.getElementById('filter_guru');
+            if (filterSelect) {
+                const currentFilter = filterSelect.value;
+                filterSelect.innerHTML = '<option value="all">Semua Guru</option>' + 
+                    (masterData.guru || []).map(g => `<option value="${g}">${g}</option>`).join('');
+                if (currentFilter === 'all' || (masterData.guru && masterData.guru.includes(currentFilter))) filterSelect.value = currentFilter;
+            }
+        }
+
+        document.getElementById('journalForm').onsubmit = async (e) => {
+            e.preventDefault();
+            if (!auth.currentUser) return alert("Sesi belum siap.");
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerText = "Menyimpan...";
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'journals'), {
+                    guru: document.getElementById('j_guru').value,
+                    kelas: document.getElementById('j_kelas').value,
+                    mapel: document.getElementById('j_mapel').value,
+                    jam: document.getElementById('j_jam').value,
+                    materi: document.getElementById('j_materi').value,
+                    namaAbsen: document.getElementById('j_nama_absen').value,
+                    absensi: {
+                        h: document.getElementById('j_hadir').value || 0,
+                        s: document.getElementById('j_sakit').value || 0,
+                        i: document.getElementById('j_izin').value || 0,
+                        a: document.getElementById('j_alfa').value || 0
+                    },
+                    createdAt: serverTimestamp()
+                });
+                e.target.reset();
+                alert("Jurnal Tersimpan di Cloud!");
+            } catch (err) { alert("Gagal: " + err.message); }
+            finally { 
+                btn.disabled = false; 
+                btn.innerText = "Simpan Jurnal & Absensi";
+            }
+        };
+
+    </script>
+</body>
+</html>
