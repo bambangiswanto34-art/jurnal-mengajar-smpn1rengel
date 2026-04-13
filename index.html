@@ -13,6 +13,10 @@
             position: fixed; inset: 0; background: rgba(255,255,255,0.8);
             display: flex; justify-content: center; align-items: center; z-index: 9999;
         }
+        .ai-glow {
+            box-shadow: 0 0 10px rgba(147, 51, 234, 0.3);
+            border: 1px solid rgba(147, 51, 234, 0.5);
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -60,8 +64,13 @@
                         </div>
                     </div>
 
-                    <div class="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-100">
-                        <h3 class="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wider">Laporan Absensi Siswa</h3>
+                    <div class="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-100 relative">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-sm font-bold text-blue-800 uppercase tracking-wider">Laporan Absensi Siswa</h3>
+                            <button type="button" onclick="window.analyzeAttendanceAI()" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-bold hover:bg-purple-200 transition border border-purple-300">
+                                ✨ Analisis Absensi
+                            </button>
+                        </div>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                             <div><label class="block text-xs font-semibold text-gray-600 mb-1">Hadir</label><input type="number" id="j_hadir" value="0" class="w-full border p-2 rounded text-center"></div>
                             <div><label class="block text-xs font-semibold text-gray-600 mb-1">Sakit (S)</label><input type="number" id="j_sakit" value="0" class="w-full border p-2 rounded text-center"></div>
@@ -69,9 +78,18 @@
                             <div><label class="block text-xs font-semibold text-gray-600 mb-1">Alfa (A)</label><input type="number" id="j_alfa" value="0" class="w-full border p-2 rounded text-center"></div>
                         </div>
                         <input type="text" id="j_nama_absen" class="w-full border p-2 rounded bg-white text-sm" placeholder="Nama Siswa Tidak Hadir...">
+                        <div id="ai-attendance-result" class="hidden mt-3 p-3 bg-purple-50 text-purple-800 text-xs rounded border border-purple-200 italic"></div>
                     </div>
 
-                    <textarea id="j_materi" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 border mb-6" placeholder="Ringkasan Materi..." required></textarea>
+                    <div class="mb-6 relative">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-medium text-gray-700">Ringkasan Materi</label>
+                            <button type="button" onclick="window.refineMaterialAI()" class="text-xs bg-purple-600 text-white px-3 py-1 rounded-md font-bold hover:bg-purple-700 transition">
+                                ✨ Rapikan Materi
+                            </button>
+                        </div>
+                        <textarea id="j_materi" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 bg-gray-50 border" placeholder="Ringkasan Materi..." required></textarea>
+                    </div>
 
                     <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-blue-700 transition">Simpan Jurnal & Absensi</button>
                 </form>
@@ -111,18 +129,13 @@
                     <button onclick="window.switchAdminTab('guru')" id="tab-guru" class="px-6 py-3 transition">Guru</button>
                     <button onclick="window.switchAdminTab('kelas')" id="tab-kelas" class="px-6 py-3 transition">Kelas</button>
                     <button onclick="window.switchAdminTab('mapel')" id="tab-mapel" class="px-6 py-3 transition">Mapel</button>
+                    <button onclick="window.switchAdminTab('asisten')" id="tab-asisten" class="px-6 py-3 transition">✨ Asisten AI</button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <h4 class="font-bold text-gray-700 mb-2">Input Massal (Pemisah Baris Baru)</h4>
-                        <textarea id="mass-input" rows="6" class="w-full border p-3 rounded bg-gray-50 text-sm" placeholder="Contoh:&#10;Nama Guru 1&#10;Nama Guru 2"></textarea>
-                        <button onclick="window.saveMassInput()" class="mt-2 w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Tambah Data ke Cloud</button>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-gray-700 mb-2 text-sm">Data Terdaftar di Cloud:</h4>
-                        <div id="data-list-container" class="border rounded max-h-64 overflow-y-auto p-2 bg-gray-50 space-y-1"></div>
-                    </div>
+
+                <div id="admin-main-content" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Dynamic content based on tab -->
                 </div>
+
                 <div class="mt-8 border-t pt-4 flex justify-between items-center">
                     <button onclick="showPage('home')" class="text-blue-600 font-bold hover:underline">← Kembali ke Form</button>
                     <button onclick="window.clearAllJournals()" class="text-red-500 text-xs hover:underline">Hapus Semua Data Jurnal</button>
@@ -150,6 +163,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'smp1rengel-cloud';
+        const apiKey = ""; // Gemini API Key
 
         let masterData = { guru: [], kelas: [], mapel: [], jam: ["1","2","3","4","5","6","7","8"] };
         let journals = [];
@@ -157,68 +171,112 @@
         let unsubConfig = null;
         let unsubJournals = null;
 
-        // Fungsi untuk memulai listener data HANYA setelah login berhasil
+        // --- GEMINI API HELPERS ---
+        async function callGemini(prompt, systemPrompt = "") {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            let retries = 0;
+            const maxRetries = 5;
+            
+            while (retries < maxRetries) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }],
+                            systemInstruction: { parts: [{ text: systemPrompt }] }
+                        })
+                    });
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, asisten AI sedang sibuk.";
+                } catch (error) {
+                    retries++;
+                    const delay = Math.pow(2, retries) * 1000;
+                    await new Promise(res => setTimeout(res, delay));
+                }
+            }
+            return "Koneksi ke AI gagal setelah beberapa percobaan.";
+        }
+
+        window.refineMaterialAI = async () => {
+            const materiEl = document.getElementById('j_materi');
+            const original = materiEl.value;
+            if (!original.trim()) return alert("Tuliskan materi terlebih dahulu.");
+
+            materiEl.disabled = true;
+            materiEl.classList.add('animate-pulse');
+            
+            const result = await callGemini(
+                `Rapikan teks berikut menjadi ringkasan jurnal mengajar yang profesional, padat, dan jelas: "${original}"`,
+                "Anda adalah asisten administrasi sekolah di Indonesia yang ahli dalam merangkum materi pembelajaran."
+            );
+
+            materiEl.value = result.trim();
+            materiEl.disabled = false;
+            materiEl.classList.remove('animate-pulse');
+        };
+
+        window.analyzeAttendanceAI = async () => {
+            const h = document.getElementById('j_hadir').value;
+            const s = document.getElementById('j_sakit').value;
+            const i = document.getElementById('j_izin').value;
+            const a = document.getElementById('j_alfa').value;
+            const names = document.getElementById('j_nama_absen').value;
+
+            const resultEl = document.getElementById('ai-attendance-result');
+            resultEl.classList.remove('hidden');
+            resultEl.innerText = "Menganalisis absensi...";
+
+            const prompt = `Data Absensi: Hadir ${h}, Sakit ${s}, Izin ${i}, Alfa ${a}. Siswa tidak hadir: ${names}. Berikan insight singkat dalam 1-2 kalimat untuk laporan jurnal guru.`;
+            const result = await callGemini(prompt, "Anda adalah sistem pakar analisis kehadiran siswa.");
+            
+            resultEl.innerText = result;
+        };
+
+        // --- FIREBASE SYNC ---
         const startDataSync = () => {
             const user = auth.currentUser;
             if (!user) return;
 
-            // Bersihkan listener sebelumnya untuk mencegah duplikasi atau error izin
             if (unsubConfig) unsubConfig();
             if (unsubJournals) unsubJournals();
 
-            // 1. Sync Konfigurasi
             unsubConfig = onSnapshot(doc(db, 'artifacts', appId, 'public', 'config'), (snap) => {
                 if (snap.exists()) {
                     masterData = { ...masterData, ...snap.data() };
                     updateDropdowns();
-                    if (typeof window.renderAdminData === 'function') window.renderAdminData();
+                    window.renderAdminContent();
                 }
             }, (err) => {
-                // Jika error izin, coba lagi sekali setelah 1 detik
-                if (err.code === 'permission-denied') {
-                    console.warn("Izin ditolak, mencoba menyambung ulang...");
-                    setTimeout(startDataSync, 1000);
-                }
+                if (err.code === 'permission-denied') setTimeout(startDataSync, 1000);
             });
 
-            // 2. Sync Database Jurnal
             unsubJournals = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'journals'), (snap) => {
                 journals = snap.docs.map(d => ({ id: d.id, ...d.data() }))
                     .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
                 window.renderJournals();
                 updateDropdowns();
-            }, (err) => {
-                console.error("Journal Sync Error:", err);
             });
         };
 
-        // Proses Autentikasi Utama
-        const authenticate = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.error("Auth Exception:", err);
-            }
-        };
-
-        // Pasang listener status auth
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                console.log("Terautentikasi sebagai:", user.uid);
                 startDataSync();
                 document.getElementById('loading').style.display = 'none';
             }
         });
 
-        // Jalankan auth
+        const authenticate = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
         authenticate();
 
-        // --- GLOBAL FUNCTIONS ---
-
+        // --- UI LOGIC ---
         window.showPage = (id) => {
             document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
             document.getElementById(`page-${id}`).classList.remove('hidden');
@@ -232,63 +290,91 @@
                 window.closeAdminModal();
                 window.showPage('admin');
                 window.switchAdminTab('guru');
-            } else {
-                alert("Password Salah!");
-            }
+            } else { alert("Password Salah!"); }
         };
 
         window.switchAdminTab = (cat) => {
             currentTab = cat;
-            document.querySelectorAll('#page-admin button[id^="tab-"]').forEach(b => {
-                b.classList.remove('tab-active', 'text-blue-700', 'font-bold');
-            });
+            document.querySelectorAll('#page-admin button').forEach(b => b.classList.remove('tab-active', 'text-blue-700', 'font-bold'));
             const activeBtn = document.getElementById(`tab-${cat}`);
             if (activeBtn) activeBtn.classList.add('tab-active', 'text-blue-700', 'font-bold');
-            window.renderAdminData();
+            window.renderAdminContent();
         };
 
-        window.renderAdminData = () => {
-            const container = document.getElementById('data-list-container');
-            const items = masterData[currentTab] || [];
-            if (items.length === 0) {
-                container.innerHTML = '<p class="text-xs text-gray-400 p-2 italic">Kosong</p>';
+        window.renderAdminContent = () => {
+            const container = document.getElementById('admin-main-content');
+            
+            if (currentTab === 'asisten') {
+                container.innerHTML = `
+                    <div class="col-span-full bg-purple-50 p-6 rounded-xl ai-glow">
+                        <h4 class="font-bold text-purple-800 mb-4 flex items-center gap-2">
+                            <span class="text-xl">✨</span> Chat Asisten Guru SMPN 1 Rengel
+                        </h4>
+                        <div id="ai-chat-history" class="bg-white border rounded-lg h-64 overflow-y-auto mb-4 p-4 text-sm space-y-3">
+                            <div class="bg-blue-50 p-2 rounded-lg inline-block max-w-[80%]">Halo Admin! Ada yang bisa saya bantu terkait data guru, kelas, atau ide pembelajaran hari ini?</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="ai-prompt" class="flex-1 border p-2 rounded-lg text-sm" placeholder="Tanyakan sesuatu...">
+                            <button onclick="window.sendChatAI()" class="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold">Kirim ✨</button>
+                        </div>
+                    </div>
+                `;
                 return;
             }
-            container.innerHTML = items.map((it, idx) => `
+
+            container.innerHTML = `
+                <div>
+                    <h4 class="font-bold text-gray-700 mb-2">Input Massal (${currentTab.toUpperCase()})</h4>
+                    <textarea id="mass-input" rows="6" class="w-full border p-3 rounded bg-gray-50 text-sm" placeholder="Pisahkan dengan baris baru..."></textarea>
+                    <button onclick="window.saveMassInput()" class="mt-2 w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Tambah ke Cloud</button>
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-700 mb-2 text-sm">Terdaftar di Cloud:</h4>
+                    <div id="data-list-container" class="border rounded max-h-64 overflow-y-auto p-2 bg-gray-50 space-y-1"></div>
+                </div>
+            `;
+            
+            const listContainer = document.getElementById('data-list-container');
+            const items = masterData[currentTab] || [];
+            listContainer.innerHTML = items.length ? items.map((it, idx) => `
                 <div class="flex justify-between p-2 bg-white border rounded text-xs items-center shadow-sm">
                     <span class="truncate pr-2">${it}</span>
                     <button onclick="window.removeDataItem(${idx})" class="text-red-400 hover:text-red-600 font-bold p-1">✕</button>
                 </div>
-            `).join('');
+            `).join('') : '<p class="text-xs text-gray-400 p-2 italic">Kosong</p>';
+        };
+
+        window.sendChatAI = async () => {
+            const input = document.getElementById('ai-prompt');
+            const history = document.getElementById('ai-chat-history');
+            const text = input.value.trim();
+            if (!text) return;
+
+            history.innerHTML += `<div class="bg-gray-100 p-2 rounded-lg ml-auto max-w-[80%] text-right">${text}</div>`;
+            input.value = "";
+            history.scrollTop = history.scrollHeight;
+
+            const system = `Anda adalah asisten khusus untuk administrator UPT SMPN 1 Rengel. Anda membantu mengelola data guru, memberikan ide pembelajaran, dan membantu administrasi. Jawablah dengan sopan dan membantu.`;
+            const response = await callGemini(text, system);
+            
+            history.innerHTML += `<div class="bg-purple-50 p-2 rounded-lg inline-block max-w-[80%]">✨ ${response}</div>`;
+            history.scrollTop = history.scrollHeight;
         };
 
         window.saveMassInput = async () => {
-            if (!auth.currentUser) return;
             const input = document.getElementById('mass-input').value;
             const items = input.split('\n').map(i => i.trim()).filter(i => i !== "");
-            if (items.length === 0) return alert("Masukkan data terlebih dahulu!");
-
-            const updatedList = [...new Set([...(masterData[currentTab] || []), ...items])].sort();
-            masterData[currentTab] = updatedList;
-
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'config'), masterData);
-                document.getElementById('mass-input').value = '';
-                alert("Berhasil diperbarui di Cloud!");
-            } catch (e) { 
-                alert("Gagal menyimpan: " + e.message); 
-            }
+            if (!items.length) return;
+            const updated = [...new Set([...(masterData[currentTab] || []), ...items])].sort();
+            masterData[currentTab] = updated;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'config'), masterData);
+            document.getElementById('mass-input').value = "";
         };
 
         window.removeDataItem = async (idx) => {
-            if (!auth.currentUser) return;
-            if (confirm(`Hapus "${masterData[currentTab][idx]}"?`)) {
+            if (confirm("Hapus item ini?")) {
                 masterData[currentTab].splice(idx, 1);
-                try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'config'), masterData);
-                } catch (e) {
-                    alert("Gagal menghapus: " + e.message);
-                }
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'config'), masterData);
             }
         };
 
@@ -297,81 +383,54 @@
             const filter = document.getElementById('filter_guru').value;
             const data = filter === 'all' ? journals : journals.filter(j => j.guru === filter);
             
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Tidak ada data.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.map(j => `
+            tbody.innerHTML = data.length ? data.map(j => `
                 <tr class="hover:bg-gray-50 border-b">
-                    <td class="px-4 py-3 text-[10px] text-gray-500">${j.createdAt ? new Date(j.createdAt.seconds * 1000).toLocaleString('id-ID') : 'Sinkronisasi...'}</td>
-                    <td class="px-4 py-3"><div class="font-bold text-xs">${j.guru}</div><div class="text-[9px] text-gray-400">${j.kelas} | Jam ${j.jam}</div></td>
-                    <td class="px-4 py-3 text-xs leading-relaxed">${j.materi}</td>
-                    <td class="px-4 py-3 text-center text-[9px] font-bold text-blue-700">${j.absensi?.h || 0}/${j.absensi?.s || 0}/${j.absensi?.i || 0}/${j.absensi?.a || 0}</td>
-                    <td class="px-4 py-3 text-center"><button onclick="window.deleteJournalEntry('${j.id}')" class="text-gray-300 hover:text-red-500 transition">🗑️</button></td>
+                    <td class="px-4 py-3 text-[10px] text-gray-500">${j.createdAt ? new Date(j.createdAt.seconds * 1000).toLocaleString('id-ID') : '...'}</td>
+                    <td class="px-4 py-3"><div class="font-bold text-xs">${j.guru}</div><div class="text-[9px] text-gray-400">${j.kelas} | ${j.jam}</div></td>
+                    <td class="px-4 py-3 text-xs">${j.materi}</td>
+                    <td class="px-4 py-3 text-center text-[9px] font-bold text-blue-700">${j.absensi?.h}/${j.absensi?.s}/${j.absensi?.i}/${j.absensi?.a}</td>
+                    <td class="px-4 py-3 text-center"><button onclick="window.deleteJournalEntry('${j.id}')" class="text-gray-300 hover:text-red-500">🗑️</button></td>
                 </tr>
-            `).join('');
+            `).join('') : '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Kosong</td></tr>';
         };
 
         window.deleteJournalEntry = async (id) => {
-            if (confirm("Hapus jurnal ini dari cloud?")) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'journals', id));
-            }
-        };
-
-        window.clearAllJournals = async () => {
-            if (confirm("PERINGATAN! Ini akan menghapus SELURUH riwayat jurnal. Lanjutkan?")) {
-                for (let j of journals) {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'journals', j.id));
-                }
-                alert("Semua data jurnal telah dihapus.");
-            }
+            if (confirm("Hapus?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'journals', id));
         };
 
         window.exportFilteredData = () => {
-            const filterValue = document.getElementById('filter_guru').value;
-            let data = journals;
-            if (filterValue !== 'all') data = journals.filter(j => j.guru === filterValue);
-            
-            const headers = "Waktu,Guru,Mapel,Kelas,Jam,Materi,H,S,I,A\n";
-            const rows = data.map(j => {
-                const date = j.createdAt ? new Date(j.createdAt.seconds * 1000).toLocaleString('id-ID').replace(',', '') : '';
-                return `"${date}","${j.guru}","${j.mapel}","${j.kelas}","${j.jam}","${j.materi}","${j.absensi?.h || 0}","${j.absensi?.s || 0}","${j.absensi?.i || 0}","${j.absensi?.a || 0}"`;
-            }).join('\n');
-            
-            const blob = new Blob([headers + rows], { type: 'text/csv' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `Jurnal_SMP1Rengel_${filterValue}_${new Date().toLocaleDateString()}.csv`;
-            link.click();
+            const filter = document.getElementById('filter_guru').value;
+            const data = filter === 'all' ? journals : journals.filter(j => j.guru === filter);
+            const csv = "Waktu,Guru,Kelas,Mapel,Materi,H,S,I,A\n" + 
+                data.map(j => `"${j.createdAt?new Date(j.createdAt.seconds*1000).toLocaleString():''}","${j.guru}","${j.kelas}","${j.mapel}","${j.materi}","${j.absensi?.h}","${j.absensi?.s}","${j.absensi?.i}","${j.absensi?.a}"`).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Jurnal_Export_${filter}.csv`;
+            a.click();
         };
 
         function updateDropdowns() {
             const fill = (id, list) => {
                 const el = document.getElementById(id);
                 if (!el) return;
-                const current = el.value;
-                el.innerHTML = '<option value="">-- Pilih --</option>' + 
-                    (list || []).map(i => `<option value="${i}">${i}</option>`).join('');
-                if (list && list.includes(current)) el.value = current;
+                const val = el.value;
+                el.innerHTML = '<option value="">-- Pilih --</option>' + list.map(i => `<option value="${i}">${i}</option>`).join('');
+                if (list.includes(val)) el.value = val;
             };
             fill('j_guru', masterData.guru);
             fill('j_kelas', masterData.kelas);
             fill('j_mapel', masterData.mapel);
             fill('j_jam', masterData.jam);
             
-            const filterSelect = document.getElementById('filter_guru');
-            if (filterSelect) {
-                const currentFilter = filterSelect.value;
-                filterSelect.innerHTML = '<option value="all">Semua Guru</option>' + 
-                    (masterData.guru || []).map(g => `<option value="${g}">${g}</option>`).join('');
-                if (currentFilter === 'all' || (masterData.guru && masterData.guru.includes(currentFilter))) filterSelect.value = currentFilter;
-            }
+            const filter = document.getElementById('filter_guru');
+            const curF = filter.value;
+            filter.innerHTML = '<option value="all">Semua Guru</option>' + masterData.guru.map(g => `<option value="${g}">${g}</option>`).join('');
+            filter.value = curF || 'all';
         }
 
         document.getElementById('journalForm').onsubmit = async (e) => {
             e.preventDefault();
-            if (!auth.currentUser) return alert("Sesi belum siap.");
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.innerText = "Menyimpan...";
@@ -382,24 +441,42 @@
                     mapel: document.getElementById('j_mapel').value,
                     jam: document.getElementById('j_jam').value,
                     materi: document.getElementById('j_materi').value,
-                    namaAbsen: document.getElementById('j_nama_absen').value,
                     absensi: {
-                        h: document.getElementById('j_hadir').value || 0,
-                        s: document.getElementById('j_sakit').value || 0,
-                        i: document.getElementById('j_izin').value || 0,
-                        a: document.getElementById('j_alfa').value || 0
+                        h: document.getElementById('j_hadir').value,
+                        s: document.getElementById('j_sakit').value,
+                        i: document.getElementById('j_izin').value,
+                        a: document.getElementById('j_alfa').value
                     },
                     createdAt: serverTimestamp()
                 });
                 e.target.reset();
-                alert("Jurnal Tersimpan di Cloud!");
-            } catch (err) { alert("Gagal: " + err.message); }
-            finally { 
-                btn.disabled = false; 
-                btn.innerText = "Simpan Jurnal & Absensi";
-            }
+                document.getElementById('ai-attendance-result').classList.add('hidden');
+                alert("Berhasil!");
+            } catch (err) { alert(err.message); }
+            finally { btn.disabled = false; btn.innerText = "Simpan Jurnal & Absensi"; }
         };
-
     </script>
+<script>
+  // Fungsi untuk menghilangkan loading overlay setelah halaman selesai dimuat
+  window.addEventListener('load', () => {
+    const loading = document.getElementById('loading');
+    if (loading) {
+      // Memberi sedikit delay agar transisinya halus
+      setTimeout(() => {
+        loading.style.display = 'none';
+      }, 500); 
+    }
+  });
+
+  // Tambahkan juga fungsi sederhana agar tombol menu tidak error saat diklik
+  function showPage(page) {
+    console.log("Pindah ke halaman: " + page);
+    // Logika pindah halaman bisa kamu tambah di sini nanti
+  }
+
+  function checkAdmin() {
+    alert("Fitur Admin sedang disiapkan!");
+  }
+</script>
 </body>
 </html>
