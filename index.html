@@ -457,26 +457,34 @@
         };
     </script>
 <script>
-  // Fungsi untuk menghilangkan loading overlay setelah halaman selesai dimuat
+  // 1. Fungsi untuk menghilangkan loading overlay
   window.addEventListener('load', () => {
     const loading = document.getElementById('loading');
     if (loading) {
-      // Memberi sedikit delay agar transisinya halus
       setTimeout(() => {
         loading.style.display = 'none';
-      }, 500); 
+      }, 500);
     }
   });
 
-  // Tambahkan juga fungsi sederhana agar tombol menu tidak error saat diklik
-  function showPage(page) {
-    console.log("Pindah ke halaman: " + page);
-    // Logika pindah halaman bisa kamu tambah di sini nanti
+  // 2. Fungsi checkAdmin agar tombol Kelola Data berfungsi
+  function checkAdmin() {
+    // Menampilkan kotak input password sederhana
+    const password = prompt("Masukkan Password Admin untuk Mengelola Data:");
+
+    if (password === "123") { // Kamu bisa ganti password-nya di sini
+      alert("Akses Diterima! Membuka menu kelola data...");
+      // Di sini kamu bisa arahkan ke halaman lain atau memunculkan menu
+      // window.location.href = 'admin.html';
+    } else if (password !== null) {
+      alert("Password salah! Akses ditolak.");
+    }
   }
 
-  function checkAdmin() {
-    alert("Fitur Admin sedang disiapkan!");
+  // 3. Fungsi navigasi agar tombol Home juga berfungsi
+  function showPage(page) {
+    console.log("Berpindah ke halaman: " + page);
+    // Logika untuk menampilkan konten halaman tertentu
   }
-</script>
-</body>
+</script></body>
 </html>
